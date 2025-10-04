@@ -3,13 +3,22 @@ import json
 import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
-
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import time
 bucketname = 'enigmagenomics-internship.firebasestorage.app'
 
 def condition_function():
     
     ses = requests.Session()
     ses.headers.update({"User-Agent": "Mozilla/5.0"})
+    adapter = HTTPAdapter(
+        pool_connections=30,   # number of persistent connections
+        pool_maxsize=30,       # maximum concurrent requests
+        max_retries=Retry(total=3, backoff_factor=0.3)
+    )
+    ses.mount("https://", adapter)
+    ses.mount("http://", adapter)
 
     url_main = 'https://medlineplus.gov/genetics/condition'
     letters = list("abcdefghijklmnopqrstuvwxyz0")
@@ -45,6 +54,7 @@ def condition_function():
 
     def process_condition(i):
         try:
+            time.sleep(0.1) 
             lin = i.find('a')
             condition_name = lin.text.strip()
             link = lin['href']
@@ -220,7 +230,7 @@ def condition_function():
         except Exception as e:
             print(f"Error processing {lin.text.strip()}: {e}")       
                 
-    with ThreadPoolExecutor(max_workers=30) as executor:
+    with ThreadPoolExecutor(max_workers=25) as executor:
             executor.map(process_condition, all_links)
             
-    return len(all_links), "All Unique Conditions info added successfully."              
+    return len(all_links), "All Conditions info added successfully."              

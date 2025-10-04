@@ -1,1 +1,8 @@
 firebase_functions~=0.1.0
+beautifulsoup4
+requests
+firebase-functions
+functions-framework
+firebase-admin
+google-cloud-storage
+flask
