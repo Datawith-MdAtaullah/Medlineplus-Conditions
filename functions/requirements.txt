@@ -5,4 +5,6 @@ firebase-functions
 functions-framework
 firebase-admin
 google-cloud-storage
+aiohttp
+asyncio
 flask
