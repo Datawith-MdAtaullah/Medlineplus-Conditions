@@ -5,8 +5,10 @@
 from firebase_functions import https_fn
 from firebase_admin import initialize_app
 from firebase_functions.https_fn import Request , Response
-from scraping.medlineasync import cond_function
+from scraping.medlineasync import cond_function 
 import json
+from scraping.medlineplus_conditions import condition_function
+
 
 # For cost control, you can set the maximum number of containers that can be
 # running at the same time. This helps mitigate the impact of unexpected
@@ -25,4 +27,19 @@ def crawling_all_conditions(req:Request) -> Response:
         json.dumps({"status": "success", "Total_conditions": total_conditions, "message": msg}), 
         mimetype="application/json" 
     )
+    
+
+@https_fn.on_request(timeout_sec=360)
+def crawling_conditions(req:Request) -> Response:
+    print("Crawl started...")
+    total_conditions, msg = condition_function()
+    print("Crawl finished.")
+    return Response( 
+        json.dumps({"status": "success", "Total_conditions": total_conditions, "message": msg}), 
+        mimetype="application/json" 
+    )
+    
+    
+
+
     

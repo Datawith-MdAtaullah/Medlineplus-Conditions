@@ -2,7 +2,8 @@ from utils.save_to_firebase import save_conditions
 import json
 import requests
 from bs4 import BeautifulSoup
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 
 bucketname = 'enigmagenomics-internship.firebasestorage.app'
 
@@ -28,6 +29,12 @@ def condition_function():
                 if a and a['href'] not in seen:
                     seen.add(a['href'])  
                     all_links.append(li) 
+                    
+    total = len(all_links)
+    print(f"Total conditions found: {total}")
+    
+    saved_count = 0
+    lock = Lock()
 
     def replace_links_with_text(cont):
         
@@ -43,6 +50,7 @@ def condition_function():
         return cont.text.strip()
 
     def process_condition(i):
+        nonlocal saved_count
         try:
             lin = i.find('a')
             condition_name = lin.text.strip()
@@ -215,13 +223,23 @@ def condition_function():
             filename = f'genes/all_conditions_separate_files/{fi_name}.json' 
             d = json.dumps(data_condition, ensure_ascii=False, indent=2) 
             save_conditions(d, bucketname, filename) 
-            print(f"{fi_name} saved.")
+            
+            with lock:
+                saved_count += 1
+                print(f"{saved_count}/{total} -> {fi_name} saved.")
+                
             del soup1, page2, description_div, frequency_div, causes_div, inheritance_div, syn_div, resources_div, references_div, data_condition
                         
         except Exception as e:
-            print(f"Error processing {lin.text.strip()}: {e}")       
-                
-    with ThreadPoolExecutor(max_workers=20) as executor:
-            executor.map(process_condition, all_links)
+            with lock:
+                 print(f"Error processing {lin.text.strip()}: {e}")    
+                                 
+    with ThreadPoolExecutor(max_workers=15) as executor:
+        futures = [executor.submit(process_condition, i) for i in all_links]
+        for future in as_completed(futures):
+            try:
+                future.result() 
+            except Exception as e:
+                print(f"Error in task: {e}")
             
-    return len(all_links), "All Conditions info added successfully."              
+    return total, "All Conditions info added successfully."              
