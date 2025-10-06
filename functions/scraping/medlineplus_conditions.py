@@ -2,7 +2,7 @@ from utils.save_to_firebase import save_conditions
 import json
 import requests
 from bs4 import BeautifulSoup
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 
 bucketname = 'enigmagenomics-internship.firebasestorage.app'
@@ -235,11 +235,6 @@ def condition_function():
                  print(f"Error processing {lin.text.strip()}: {e}")    
                                  
     with ThreadPoolExecutor(max_workers=15) as executor:
-        futures = [executor.submit(process_condition, i) for i in all_links]
-        for future in as_completed(futures):
-            try:
-                future.result() 
-            except Exception as e:
-                print(f"Error in task: {e}")
+            executor.map(process_condition, all_links)
             
     return total, "All Conditions info added successfully."              
