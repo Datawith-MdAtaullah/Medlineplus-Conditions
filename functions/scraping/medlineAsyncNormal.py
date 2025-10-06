@@ -3,6 +3,7 @@ import json
 from bs4 import BeautifulSoup
 import asyncio
 import aiohttp
+import re
 
 bucketname = 'enigmagenomics-internship.firebasestorage.app'
 
@@ -152,7 +153,8 @@ def async_cond_function():
                         "references": references
                     }
                 }
-                fi_name = condition_name.replace("/", "_").replace(" ", "_").replace("-", "_").replace(":", "_")
+                fi_name = re.sub(r"[^a-zA-Z0-9]+", '_', condition_name.lower())
+                fi_name = re.sub(r'_+', '_', fi_name).strip('_')
                 filename = f'genes/conditions_updated/{fi_name}.json' 
                 d = json.dumps(data_condition, ensure_ascii=False, indent=2) 
                 await asyncio.to_thread(save_conditions, d, bucketname, filename)
