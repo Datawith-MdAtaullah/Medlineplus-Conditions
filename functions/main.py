@@ -8,6 +8,8 @@ from firebase_functions.https_fn import Request , Response
 from scraping.medlineasync import cond_function 
 import json
 from scraping.medlineAsyncNormal import async_cond_function
+from api.condition_api import get_condition
+from api.cond_api import get_cond
 
 
 # For cost control, you can set the maximum number of containers that can be
@@ -39,7 +41,11 @@ def crawling_conditions(req:Request) -> Response:
         mimetype="application/json" 
     )
     
-    
+@https_fn.on_request()
+def search_conditions_api(req:Request) -> Response:
+    return get_condition(req)
 
-
+@https_fn.on_request()
+def search_cond_api(req:Request) -> Response:
+    return get_cond(req)
     

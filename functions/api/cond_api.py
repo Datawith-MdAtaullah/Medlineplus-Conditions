@@ -11,8 +11,12 @@ def safe_name(name):
     fi_name = re.sub(r'_+', '_', fi_name).strip('_')
     return fi_name
 
-def get_condition(req: Request) -> Response:
-    
+def matching_value(name):
+    s = safe_name(name)
+    s = s.replace("_", "")
+    return s
+
+def get_cond(req: Request) -> Response:
     z = req.args.get("search")
     
     if not z:
@@ -29,7 +33,6 @@ def get_condition(req: Request) -> Response:
             x = g.strip()
             cond_list.append(x)
     
-
     if len(cond_list) > 20:
         return Response(
             json.dumps({"error": "Maximum 20 conditions allowed per request"}),
@@ -37,18 +40,30 @@ def get_condition(req: Request) -> Response:
             mimetype="application/json"
         )
 
+    bucket = s.bucket(my_bucket)
     results = []
-    b = s.bucket(my_bucket)
 
     for c in cond_list:
-        condition_name = safe_name(c)
+        search_value = matching_value(c)
         try:
-            o = b.blob(f"{file_path}{condition_name}.json")
-            if o.exists():
-                data = o.download_as_text()
+            blobs = list(bucket.list_blobs(prefix=file_path))
+            matched_blob = None
+            for b in blobs:
+                fname = b.name
+                fname = fname.split("/")
+                fname = fname[-1]
+                fname = fname.replace(".json", "")
+                fname = fname.replace("_", "")
+                if fname == search_value:
+                    matched_blob = b
+                    break
+
+            if matched_blob:
+                data = matched_blob.download_as_text()
                 results.append(json.loads(data))
             else:
-                results.append({"error": f"Conditions '{c}' not found"})
+                results.append({"error": f"Condition '{c}' not found"})
+
         except Exception as e:
             results.append({"error": str(e)})
 
