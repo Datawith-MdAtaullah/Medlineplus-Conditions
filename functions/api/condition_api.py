@@ -11,10 +11,14 @@ def safe_name(name):
     fi_name = re.sub(r'_+', '_', fi_name).strip('_')
     return fi_name
 
+def matching_value(name):
+    s = safe_name(name)
+    s = s.replace("_", "")
+    return s
+
 def get_condition(req: Request) -> Response:
-    
     z = req.args.get("search")
-    
+
     if not z:
         return Response(
             json.dumps({"error": "Missing ?search=Condition(s) to find"}),
@@ -28,7 +32,6 @@ def get_condition(req: Request) -> Response:
         if g.strip():
             x = g.strip()
             cond_list.append(x)
-    
 
     if len(cond_list) > 20:
         return Response(
@@ -37,20 +40,32 @@ def get_condition(req: Request) -> Response:
             mimetype="application/json"
         )
 
+    bucket = s.bucket(my_bucket)
+    blobs = list(bucket.list_blobs(prefix=file_path))
     results = []
-    b = s.bucket(my_bucket)
 
     for c in cond_list:
-        condition_name = safe_name(c)
-        try:
-            o = b.blob(f"{file_path}{condition_name}.json")
-            if o.exists():
-                data = o.download_as_text()
-                results.append(json.loads(data))
-            else:
-                results.append({"error": f"Conditions '{c}' not found"})
-        except Exception as e:
-            results.append({"error": str(e)})
+        search_value = matching_value(c)
+        matched_results = []
+
+        for b in blobs:
+            fname = b.name
+            fname = fname.split("/")
+            fname = fname[-1]
+            fname = fname.replace(".json", "")
+            fname = fname.replace("_", "")
+
+            if search_value in fname:
+                try:
+                    data = b.download_as_text()
+                    matched_results.append(json.loads(data))
+                except Exception as e:
+                    matched_results.append({"error": str(e)})
+
+        if not matched_results:
+            matched_results.append({"error": f"No match found for '{c}'"})
+
+        results.extend(matched_results)
 
     return Response(
         json.dumps(results, indent=2),
