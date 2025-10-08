@@ -3,14 +3,23 @@ import json
 from bs4 import BeautifulSoup
 import asyncio
 import aiohttp
+import re
 
 
 bucketname = 'enigmagenomics-internship.firebasestorage.app'
 
-def cond_function():
+def indexing_conditions_function():
     
     url_base = 'https://medlineplus.gov/genetics/condition'
     letters = list("abcdefghijklmnopqrstuvwxyz0")
+    
+    index_map ={}
+
+    def convert_to_underscore(name):
+         name = name.lower()
+         name = re.sub(r"[^a-zA-Z0-9]+", "_", name)
+         name = re.sub(r"_+", "_", name).strip("_")
+         return name
 
     async def fetch(session, url):
         try:
@@ -50,7 +59,7 @@ def cond_function():
         text = cont.get_text(" ", strip=True)
         return {"text": text, "links": links}
     
-    semaphore = asyncio.Semaphore(10)
+    semaphore = asyncio.Semaphore(30)
     async def process_condition(session, link_tag):
         async with semaphore:
             try:
@@ -70,14 +79,14 @@ def cond_function():
                 if description_div:
                     content = description_div.find('div', class_="mp-content")
                     if content:
-                        description = extract_text_and_links(content)
+                        description = await asyncio.to_thread(extract_text_and_links,content)
         
                 frequency_div = next((y for y in divs if y.get("data-bookmark")=="frequency"), None)
                 frequency = {"text": "", "links": []}
                 if frequency_div:
                     fre = frequency_div.find('div', class_="mp-content")
                     if fre:
-                        frequency = extract_text_and_links(fre)
+                        frequency = await asyncio.to_thread(extract_text_and_links,fre)
         
                 causes_div = next((x for x in divs if x.get("data-bookmark")=="causes"), None)
                 causes = []
@@ -85,7 +94,7 @@ def cond_function():
                 if causes_div:
                     cau = causes_div.find('div', class_='mp-content')
                     if cau:
-                        cause_entry["details"] = extract_text_and_links(cau)
+                        cause_entry["details"] = await asyncio.to_thread(extract_text_and_links,cau)    
                     block = causes_div.find('div', class_="related-genes mp-exp exp-full")
                     if block:
                         h = block.find('h3')
@@ -111,7 +120,7 @@ def cond_function():
                 if inheritance_div:
                     inh = inheritance_div.find('div', class_="mp-content")
                     if inh:
-                        inheritance = extract_text_and_links(inh)
+                        inheritance = await asyncio.to_thread(extract_text_and_links,inh)   
         
                 syn_div = next((s for s in divs if s.get("data-bookmark")=="synonyms"), None)
                 synonyms = []
@@ -154,21 +163,37 @@ def cond_function():
                         "references": references
                     }
                 }
-                fi_name = condition_name.replace("/", "_").replace(" ", "_")
+                fi_name = convert_to_underscore(condition_name)
                 filename = f'genes/conditions/{fi_name}.json' 
                 d = json.dumps(data_condition, ensure_ascii=False, indent=2) 
-                save_conditions(d, bucketname, filename) 
-                print(f"{fi_name} saved.")
+                
+                await asyncio.to_thread(save_conditions,d, bucketname, filename) 
+                
+                index_map[fi_name] = filename
+                for syn in synonyms:
+                    simple_syn = convert_to_underscore(syn)
+                    index_map[simple_syn] = filename
+                
                 del soup1, page2_text, description_div, frequency_div, causes_div, inheritance_div, syn_div, resources_div, references_div, data_condition
+                return 1
             
             except Exception as e:
                 print(f"Error processing {lin.text.strip()}: {e}")
+                return 0
 
     async def main():
         async with aiohttp.ClientSession(headers={"User-Agent": "Mozilla/5.0"}) as session:
             all_links = await get_all_links(session)
             tasks = [process_condition(session, link_tag) for link_tag in all_links]
-            await asyncio.gather(*tasks)
+            r = await asyncio.gather(*tasks)
+            save_count = sum(r)
+            
+            index_filename = "genes/index/condition_index.json"
+            index_data = json.dumps(index_map, ensure_ascii=False, indent=2)
+            await asyncio.to_thread(save_conditions, index_data, bucketname, index_filename)
+            print(f"Index file saved with {len(index_map)} entries.")
+
+            print(f"Total conditions processed: {save_count} out of {len(all_links)}")
         return len(all_links)
 
             
