@@ -1,4 +1,5 @@
 from utils.save_to_firebase import save_conditions
+from utils.saveLogs import log_condition_run
 import json
 from bs4 import BeautifulSoup
 import asyncio
@@ -11,6 +12,9 @@ def async_cond_function():
     
     url_base = 'https://medlineplus.gov/genetics/condition'
     letters = list("abcdefghijklmnopqrstuvwxyz0")
+    
+    success_conditions = []
+    failed_conditions = []
     
     async def fetch(session, url):
         try:
@@ -158,10 +162,14 @@ def async_cond_function():
                 filename = f'genes/conditions_updated/{fi_name}.json' 
                 d = json.dumps(data_condition, ensure_ascii=False, indent=2) 
                 await asyncio.to_thread(save_conditions, d, bucketname, filename)
+                
+                size = len(d.encode('utf-8')) / 1024  # here i did dividing by 1024 to convert bytes to KB
+                success_conditions.append({"name": condition_name, "size_kb": size, "path": filename})
                 del soup1, page2_text, description_div, frequency_div, causes_div, inheritance_div, syn_div, resources_div, references_div, data_condition
                 return 1
             
             except Exception as e:
+                failed_conditions.append({"name": condition_name, "error": str(e)})
                 print(f"Error processing {lin.text.strip()}: {e}")
                 return 0
 
@@ -171,7 +179,11 @@ def async_cond_function():
             tasks = [process_condition(session, link_tag) for link_tag in all_links]
             r = await asyncio.gather(*tasks)
             save_count = sum(r)
+            
+        log_path = await asyncio.to_thread(log_condition_run, success_conditions, failed_conditions, len(all_links))
+        
         print(f"Total conditions saved: {save_count} out of total conditions: {len(all_links)}")
+        print(f"Log saved at: {log_path}")
         return len(all_links)
       
     total = asyncio.run(main())
