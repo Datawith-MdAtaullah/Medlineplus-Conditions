@@ -5,6 +5,8 @@ from bs4 import BeautifulSoup
 import asyncio
 import aiohttp
 import re
+import time
+from datetime import datetime
 
 bucketname = 'enigmagenomics-internship.firebasestorage.app'
 
@@ -53,7 +55,7 @@ def async_cond_function():
         return cont.get_text(" ", strip=True)
        
     
-    semaphore = asyncio.Semaphore(30)
+    semaphore = asyncio.Semaphore(40)
     async def process_condition(session, link_tag):
         async with semaphore:
             try:
@@ -174,16 +176,26 @@ def async_cond_function():
                 return 0
 
     async def main():
+        
+        run_start_time = datetime.utcnow()
+        run_start = time.time()
+        
         async with aiohttp.ClientSession(headers={"User-Agent": "Mozilla/5.0"}) as session:
             all_links = await get_all_links(session)
             tasks = [process_condition(session, link_tag) for link_tag in all_links]
             r = await asyncio.gather(*tasks)
             save_count = sum(r)
             
-        log_path = await asyncio.to_thread(log_condition_run, success_conditions, failed_conditions, len(all_links))
+        run_end_time = datetime.utcnow()
+        run_end = time.time()
+        
+        Total_duration = round(run_end - run_start, 2)
+            
+        log_path = await asyncio.to_thread(log_condition_run, success_conditions, failed_conditions, len(all_links),run_start_time, run_end_time, Total_duration)
         
         print(f"Total conditions saved: {save_count} out of total conditions: {len(all_links)}")
         print(f"Log saved at: {log_path}")
+        print(f"Total time taken: {Total_duration} seconds")
         return len(all_links)
       
     total = asyncio.run(main())

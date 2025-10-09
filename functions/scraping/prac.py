@@ -28,16 +28,16 @@ for c in cond:
     file_path = f'genes/conditions/{filename}.json'
     
     if filename in data:
-        print(f"⚠️ Key '{filename}' already exists, overwriting...")
+        print(f"Key '{filename}' already exists, overwriting...")
     data[filename] = file_path
 
     if id in data:
-        print(f"⚠️ Key '{id}' already exists, overwriting...")
+        print(f"Key '{id}' already exists, overwriting...")
     data[id] = c
 
     for s in syn:
         if s in data:
-            print(f"⚠️ Key '{s}' already exists, overwriting...")
+            print(f"Key '{s}' already exists, overwriting...")
         data[s] = file_path
 
 print(data)

@@ -1,20 +1,31 @@
 import json
-import time
 from datetime import datetime
 from firebase_admin import storage as s
 
 
-def log_condition_run(success_conditions, failed_conditions, total_conditions, bucket_path="genes/conditions_updated/"):
+def log_condition_run(success_conditions, failed_conditions, total_conditions, run_start_time, run_end_time, Total_duration, bucket_path="genes/conditions_updated/"):
    
     bucket = s.bucket()
-
-    run_start = time.time()
-    timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
-
     
+    if run_start_time is None:
+        run_start_time = datetime.utcnow()
+    else:
+        run_start_time = run_start_time
+        
+    if run_end_time is None:
+        run_end_time = datetime.utcnow()
+    else:
+        run_end_time = run_end_time
+        
+    if Total_duration is None:
+        Total_duration = round((run_end_time - run_start_time).total_seconds(), 2)
+    else:
+        Total_duration = Total_duration
+
+    timestamp = run_start_time.strftime("%Y-%m-%dT%H-%M-%SZ")
+
     success_count = len(success_conditions)
     failed_count = len(failed_conditions)
-
 
     total_data_size_kb = 0
 
@@ -24,9 +35,9 @@ def log_condition_run(success_conditions, failed_conditions, total_conditions, b
 
     log_data = {
         "run_id": timestamp,
-        "start_time": datetime.utcnow().isoformat() + "Z",
-        "end_time": datetime.utcnow().isoformat() + "Z",
-        "duration_seconds": round(time.time() - run_start, 2),
+        "start_time": run_start_time.isoformat() + "Z",
+        "end_time": run_end_time.isoformat() + "Z",
+        "duration_seconds": Total_duration,
         "total_conditions": total_conditions,
         "success_conditions_count": success_count,
         "failed_conditions_count": failed_count,
